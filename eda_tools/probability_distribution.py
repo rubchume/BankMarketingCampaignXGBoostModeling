@@ -1,28 +1,64 @@
+from copy import deepcopy
 from typing import List, Optional, Union
 
 import pandas as pd
 
 
 class ProbabilityDistribution:
-    def __init__(self, samples: Optional[pd.DataFrame] = None, count: Optional[pd.Series] = None):
+    def __init__(self, samples: Optional[pd.DataFrame] = None, count: Optional[pd.Series] = None, **kwargs):
         if count is None:
             self.samples = samples
-            self.distribution = self.get_count_from_samples()
+            self.distribution = self._get_count_from_samples()
         else:
             self.distribution = count
+
+        self.categories_mapping = {}
+
+        for key, value in kwargs.items():
+            setattr(self, key, value)
         
     @property
     def variables(self) -> List[str]:
         return list(self.samples.columns)
+
+    @property
+    def current_variables(self) -> List[str]:
+        return list(self.distribution.index.names)
     
     @classmethod
-    def from_variables_samples(cls, *variables_samples: List[pd.Series]):
+    def from_variables_samples(cls, *variables_samples: pd.Series):
         """Variables must have the same indices"""
         return cls(pd.concat(variables_samples, axis="columns"))
         
-    def get_count_from_samples(self, variables: List[str] = None) -> pd.Series:
+    def _get_count_from_samples(self, variables: List[str] = None) -> pd.Series:
         return self.samples.groupby(by=variables or self.variables).size()
-    
+
+    def _create_copy(self, **kwargs):
+        copy = deepcopy(self)
+        for key, value in kwargs.items():
+            setattr(copy, key, value)
+
+        return copy
+
+    def get_distribution(self):
+        distribution = self.distribution.reset_index()
+        distribution_variables = self.distribution.index.names
+        for variable, intervals in self.categories_mapping.items():
+            if variable in distribution_variables:
+                distribution[variable] = intervals.cat.categories[distribution[variable]]
+
+        return distribution.set_index(distribution_variables).iloc[:, 0]
+
+    def apply_function_to_variable(self, variable, function):
+        df = self.distribution.reset_index()
+        df[variable] = function(df[variable])
+
+        if df[variable].dtype == "category":
+            self.categories_mapping[variable] = df[variable]
+            df[variable] = df[variable].cat.codes
+
+        self.distribution = df.set_index(self.current_variables).iloc[:, 0]
+
     def get_marginal_count(self, variables: Union[str, List[str]]) -> pd.Series:
         return self.distribution.groupby(level=variables).sum()
     
@@ -30,10 +66,13 @@ class ProbabilityDistribution:
         return self.get_marginal_count(variables).transform(lambda s: s / s.sum())
     
     def select_variables(self, variables: List[str]):
-        return type(self)(count=self.get_marginal_probability(variables))
+        return self._create_copy(distribution=self.get_marginal_count(variables))
     
-    def given(self, **conditions):
+    def given(self, condition=None, **conditions):
         """Slice"""
+        if condition is not None:
+            conditions = condition
+
         sliced = self.distribution
         for variable, value in conditions.items():
             if isinstance((values := value), list):
@@ -41,7 +80,7 @@ class ProbabilityDistribution:
             else:
                 sliced = sliced.xs(value, level=variable, axis="index")
         
-        return type(self)(count=sliced)
+        return self._create_copy(distribution=sliced)
     
-    def conditioned_on(self, conditioned_on):
-        return type(self)(count=self.distribution.groupby(level=conditioned_on).transform(lambda s: s / s.sum()))
+    def conditioned_on(self, level):
+        return self._create_copy(distribution=self.distribution.groupby(level=level).transform(lambda s: s / s.sum()))
