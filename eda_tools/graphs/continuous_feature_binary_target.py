@@ -29,7 +29,7 @@ def histogram(
     distribution.apply_function_to_variable(feature, discretize_function)
 
     distribution_of_interest = distribution.select_variables([feature, binary_target])
-    freq = distribution_of_interest.given({binary_target: True}).get_distribution()
+    freq = distribution_of_interest.select_variables(feature).get_distribution()
     positive_rate = distribution_of_interest.conditioned_on(feature).given({binary_target: True}).get_distribution()
 
     midpoints, widths = get_interval_properties(freq.index)
