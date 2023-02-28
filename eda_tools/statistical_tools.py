@@ -76,5 +76,5 @@ def estimate_probability_density_function(variable: pd.Series, bandwidth=1):
     def get_probability_density(values: pd.Series):
         return np.exp(kde.score_samples(np.array(values).reshape(-1, 1)))
 
-    kde = KernelDensity(kernel='gaussian', bandwidth=bandwidth).fit(variable.values.reshape(-1, 1))
+    kde = KernelDensity(kernel='gaussian', bandwidth=bandwidth).fit(np.array(variable).reshape(-1, 1))
     return get_probability_density
