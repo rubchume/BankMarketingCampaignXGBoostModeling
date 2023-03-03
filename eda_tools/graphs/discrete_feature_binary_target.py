@@ -53,6 +53,65 @@ def bar(
     )
 
 
+def bar_true_target_vs_predicted(
+        categorical_feature: pd.Series,
+        binary_target: pd.Series,
+        predicted_target: pd.Series,
+        feature_name: str = None,
+        feature_count_name="Count",
+        target_average_name="Target average"
+):
+    df = pd.concat([categorical_feature, binary_target, predicted_target], axis="columns", ignore_index=True).set_axis(
+        ("feature", "label", "predicted"), axis="columns")
+    df_grouped = df.groupby("feature").aggregate(
+        freq=pd.NamedAgg("label", "count"),
+        avg=pd.NamedAgg("label", "mean"),
+        avg_predicted=pd.NamedAgg("predicted", "mean")
+    ).sort_values("avg", ascending=False)
+
+    return go.Figure(
+        data=[
+            go.Bar(
+                x=df_grouped.index,
+                y=df_grouped.freq,
+                texttemplate="%{y}",
+                showlegend=False,
+                yaxis="y"
+            ),
+            go.Scatter(
+                x=df_grouped.index,
+                y=df_grouped.avg,
+                showlegend=False,
+                yaxis="y2"
+            ),
+            go.Scatter(
+                x=df_grouped.index,
+                y=df_grouped.avg_predicted,
+                showlegend=False,
+                yaxis="y2"
+            )
+        ],
+        layout=go.Layout(
+            xaxis_title=feature_name or categorical_feature.name,
+            yaxis=dict(
+                title=feature_count_name,
+                titlefont_color=px.colors.qualitative.Plotly[0],
+                side="left"
+            ),
+            yaxis2=dict(
+                title=target_average_name,
+                anchor="x",
+                overlaying="y",
+                side="right",
+                titlefont_color=px.colors.qualitative.Plotly[1],
+                tickmode="sync",
+                tickformat='.0%',
+                range=[0, df_grouped.avg.max() * 1.1]
+            ),
+        )
+    )
+
+
 def bar_numerical(
         numerical_feature: pd.Series,
         binary_target: pd.Series,

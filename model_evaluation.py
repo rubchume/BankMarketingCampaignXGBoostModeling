@@ -2,6 +2,7 @@ from inspect import signature
 from typing import Any, Callable, Dict
 
 import numpy as np
+from sklearn.inspection import partial_dependence
 from sklearn.metrics import make_scorer, ConfusionMatrixDisplay
 from sklearn.model_selection import cross_validate
 from dataclasses import dataclass
@@ -10,6 +11,7 @@ from collections import defaultdict
 
 import pandas as pd
 import plotly.graph_objects as go
+import plotly.express as px
 
 from eda_tools.statistical_tools import estimate_probability_density_function
 
@@ -67,7 +69,7 @@ class ModelEvaluationLaboratory:
                 test_scores=self._calculate_scores(estimator, X_test, y_test)
             )
 
-    def plot_estimator_binary_detection_measures(self, estimator_name, X, y, metrics=None):
+    def plot_estimator_confusion_matrix_metrics(self, estimator_name, X, y, additional_metrics=None):
         def plot_roc():
             num_positives = detection_measures.target.sum()
             recall = detection_measures.TP / num_positives
@@ -85,32 +87,41 @@ class ModelEvaluationLaboratory:
             )
 
         def plot_metrics():
-            quantile = np.arange(num_samples) / num_samples
+            x_axis_type = "quantile"
+            if x_axis_type == "threshold":
+                x_axis = detection_measures.score
+                x_axis_name = "Threshold"
+            else:
+                x_axis = np.arange(num_samples) / num_samples
+                x_axis_name = "Sample quantile (ordered by predicted score)"
 
             negative_pdf = estimate_probability_density_function(
-                quantile[detection_measures.target == False],
+                x_axis[detection_measures.target == False],
                 bandwidth=0.025
             )
             positive_pdf = estimate_probability_density_function(
-                quantile[detection_measures.target == True],
+                x_axis[detection_measures.target == True],
                 bandwidth=0.025
             )
 
+            num_positives = detection_measures.target.sum()
+            num_negatives = num_samples - num_positives
+
             data = [
-                go.Scatter(x=quantile, y=negative_pdf(quantile), name="Negative"),
-                go.Scatter(x=quantile, y=positive_pdf(quantile), name="Positive"),
+                go.Scatter(x=x_axis, y=negative_pdf(x_axis) * num_negatives / num_samples, name="Negative"),
+                go.Scatter(x=x_axis, y=positive_pdf(x_axis) * num_positives / num_samples, name="Positive"),
             ]
 
-            if metrics is not None:
+            if additional_metrics is not None:
                 data += [
-                    go.Scatter(x=quantile, y=detection_measures[metric], name=metric, yaxis="y2")
-                    for metric in metrics.keys()
+                    go.Scatter(x=x_axis, y=detection_measures[metric], name=metric, yaxis="y2")
+                    for metric in additional_metrics.keys()
                 ]
 
             return go.Figure(
                 data=data,
                 layout=go.Layout(
-                    xaxis=dict(title="Sample quantile (ordered by predicted score)", range=[0, 1]),
+                    xaxis=dict(title=x_axis_name, range=[0, 1]),
                     yaxis=dict(title="Class Probability density"),
                     yaxis2=dict(title="Metric value", overlaying="y", side="right"),
                 )
@@ -125,25 +136,25 @@ class ModelEvaluationLaboratory:
             ])
             return ConfusionMatrixDisplay(confusion_matrix)
 
-        detection_measures = self.get_estimator_binary_detection_measures(estimator_name, X, y, metrics)
+        detection_measures = self.get_estimator_confusion_matrix_metrics(estimator_name, X, y, additional_metrics)
 
         num_samples = len(detection_measures)
 
         return plot_metrics(), plot_roc(), plot_confusion_matrix()
 
-    def get_estimator_binary_detection_measures(self, estimator_name, X, y, metrics=None):
+    def get_estimator_confusion_matrix_metrics(self, estimator_name, X, y, derivated_metrics=None):
         estimator = self.get_estimator(estimator_name)
         y_score = estimator.predict_proba(X)[:, 1]
         binary_detection_measures = self._get_binary_detection_measures(y, y_score)
 
-        if metrics is None:
+        if derivated_metrics is None:
             return binary_detection_measures
 
         derivated_metrics = pd.DataFrame({
             name: metric(**{
                 parameter: binary_detection_measures[parameter]
                 for parameter in signature(metric).parameters.keys()
-            }) for name, metric in metrics.items()
+            }) for name, metric in derivated_metrics.items()
         })
 
         return pd.concat([binary_detection_measures, derivated_metrics], axis="columns")
@@ -185,6 +196,24 @@ class ModelEvaluationLaboratory:
                 df.loc[estimator_name, (TEST, list(scores.keys()))] = scores.values()
 
         return df
+
+    def partial_dependence_plot(self, estimator_name, X, feature_name):
+        estimator = self.get_estimator(estimator_name)
+        partial_dependence_values = partial_dependence(estimator, X, feature_name)
+        df = pd.DataFrame({feature_name: partial_dependence_values["values"][0], "average": partial_dependence_values["average"][0]})
+        return px.line(df, x=feature_name, y="average")
+
+    def plot_feature_importances(self, estimator_name):
+        feature_importances = self.get_feature_importances(estimator_name)
+        return px.bar(feature_importances.reset_index(), x="feature", y="importance")
+
+    def get_feature_importances(self, estimator_name):
+        estimator = self.get_estimator(estimator_name)
+        return pd.Series(
+            estimator.feature_importances_,
+            index=estimator.feature_names_in_,
+            name="importance"
+        ).rename_axis(index="feature").sort_values(ascending=False)
 
     def _register_scores(self, estimator_name, **kwargs):
         for attr, value in kwargs.items():
