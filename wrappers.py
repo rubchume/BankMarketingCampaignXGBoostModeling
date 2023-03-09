@@ -5,9 +5,9 @@ def dataframe_input(function):
     def dataframe_to_dictionary_of_series(dataframe):
         return dict(dataframe.items())
 
-    def wrapper(dataframe):
-        kwargs = dataframe_to_dictionary_of_series(dataframe)
-        return accept_kwargs(function)(**kwargs)
+    def wrapper(dataframe, **kwargs):
+        dataframe_kwargs = dataframe_to_dictionary_of_series(dataframe)
+        return accept_kwargs(function)(**dataframe_kwargs, **kwargs)
 
     return wrapper
 

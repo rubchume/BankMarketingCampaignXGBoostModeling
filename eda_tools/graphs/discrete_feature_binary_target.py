@@ -61,32 +61,38 @@ def bar_true_target_vs_predicted(
         feature_count_name="Count",
         target_average_name="Target average"
 ):
-    df = pd.concat([categorical_feature, binary_target, predicted_target], axis="columns", ignore_index=True).set_axis(
-        ("feature", "label", "predicted"), axis="columns")
-    df_grouped = df.groupby("feature").aggregate(
-        freq=pd.NamedAgg("label", "count"),
-        avg=pd.NamedAgg("label", "mean"),
-        avg_predicted=pd.NamedAgg("predicted", "mean")
-    ).sort_values("avg", ascending=False)
+    probability_distribution = ProbabilityDistribution.from_variables_samples(
+        categorical_feature.rename("feature"),
+        binary_target.rename("target"),
+        predicted_target.rename("predicted")
+    )
+
+    freq = probability_distribution.select_variables("feature").get_distribution()
+    average_success = probability_distribution.select_variables(["feature", "target"]).conditioned_on("feature").given(
+        target=True).distribution
+    average_predicted_success = probability_distribution.select_variables(["feature", "predicted"]).conditioned_on(
+        "feature").given(predicted=True).distribution
+
+    categories = freq.index
 
     return go.Figure(
         data=[
             go.Bar(
-                x=df_grouped.index,
-                y=df_grouped.freq,
+                x=categories,
+                y=freq,
                 texttemplate="%{y}",
                 showlegend=False,
                 yaxis="y"
             ),
             go.Scatter(
-                x=df_grouped.index,
-                y=df_grouped.avg,
+                x=categories,
+                y=average_success,
                 showlegend=False,
                 yaxis="y2"
             ),
             go.Scatter(
-                x=df_grouped.index,
-                y=df_grouped.avg_predicted,
+                x=categories,
+                y=average_predicted_success,
                 showlegend=False,
                 yaxis="y2"
             )
@@ -106,7 +112,7 @@ def bar_true_target_vs_predicted(
                 titlefont_color=px.colors.qualitative.Plotly[1],
                 tickmode="sync",
                 tickformat='.0%',
-                range=[0, df_grouped.avg.max() * 1.1]
+                range=[0, average_success * 1.1]
             ),
         )
     )
