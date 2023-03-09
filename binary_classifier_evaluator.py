@@ -50,17 +50,21 @@ class BinaryClassifierEvaluator:
         }
 
     def calculate_confusion_matrix_metrics(self, threshold: Optional[float] = None, **metrics: Callable):
+        num_samples = self.X.shape[0]
+        num_positive_samples = self.y.sum()
+        num_negative_samples = num_samples - num_positive_samples
+
         if threshold:
             return pd.Series({
-                metric_name: dataframe_input(metric_function)(self.get_confusion_matrix_measures(threshold))
+                metric_name: dataframe_input(metric_function)(
+                    self.get_confusion_matrix_measures(threshold),
+                    P=num_positive_samples,
+                    N=num_negative_samples,
+                )
                 for metric_name, metric_function in metrics.items()
             })
         else:
             confusion_matrix_parameters = self.get_confusion_matrix_measures()
-
-            num_samples = self.X.shape[0]
-            num_positive_samples = self.y.sum()
-            num_negative_samples = num_samples - num_positive_samples
 
             metric_results = pd.DataFrame({
                 metric_name: dataframe_input(metric_function)(
