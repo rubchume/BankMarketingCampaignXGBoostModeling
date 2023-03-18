@@ -1,10 +1,12 @@
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 
 from eda_tools.probability_distribution import ProbabilityDistribution
 from eda_tools.statistical_tools import clip_outliers, DiscretizationMagnitude, discretize_variable, \
     estimate_probability_density_function
+
 
 def histogram(
         df,
@@ -30,9 +32,12 @@ def histogram(
 
     distribution_of_interest = distribution.select_variables([feature, binary_target])
     freq = distribution_of_interest.select_variables(feature).get_distribution()
-    positive_rate = distribution_of_interest.conditioned_on(feature).given({binary_target: True}).get_distribution()
+    positive_rate = (
+        distribution_of_interest.conditioned_on(feature).given({binary_target: True}).get_distribution()
+        .reindex(freq.index, fill_value=0)
+    )
 
-    midpoints, widths = get_interval_properties(freq.index)
+    midpoints, widths = get_interval_properties(pd.Series(freq.index, index=freq.index))
     probability_density = freq / freq.sum() / widths
 
     return go.Figure(
@@ -41,7 +46,10 @@ def histogram(
             go.Scatter(x=midpoints, y=positive_rate, yaxis="y2", showlegend=False, hovertemplate="%{y:.1%}"),
         ],
         layout=go.Layout(
-            xaxis_title=feature,
+            xaxis=dict(
+                title=feature,
+                tickvals=pd.concat([midpoints + widths / 2, midpoints - widths / 2], axis="index").unique(),
+            ),
             yaxis=dict(
                 title=f"{feature} probability density",
                 titlefont=dict(

@@ -1,11 +1,13 @@
 from enum import Enum
-from typing import Callable, Optional, Literal
+from typing import Callable, Optional, Literal, List
 
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from sklearn.inspection import partial_dependence
-from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
+from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix, log_loss
+from sklearn.pipeline import Pipeline
 
 from eda_tools.graphs.discrete_feature_binary_target import bar_true_target_vs_predicted
 from eda_tools.statistical_tools import estimate_probability_density_function
@@ -83,6 +85,25 @@ class BinaryClassifierEvaluator:
             confusion_matrix_metrics.metric.max(),
             confusion_matrix_metrics.score[confusion_matrix_metrics.metric.idxmax()]
         )
+
+    def calculate_optimum_cross_entropy_for_features(self, features: List[str] = None, pipeline_step=None, feature_values=None):
+        if feature_values is None:
+            if features is None:
+                target_prob = self.y.mean()
+                return -(target_prob * np.log(target_prob) + (1 - target_prob) * np.log(1 - target_prob))
+            else:
+                if pipeline_step is not None:
+                    feature_values = self._get_feature_after_pipeline_step(features, pipeline_step)
+                else:
+                    feature_values = self.X[features]
+
+        feature_distribution = feature_values.value_counts() / len(feature_values)
+        target_conditional_prob = self.y.groupby(by=feature_values).mean()
+
+        return - sum(feature_distribution * (
+            target_conditional_prob * np.log(target_conditional_prob)
+            + (1 - target_conditional_prob) * np.log(1 - target_conditional_prob)
+        ))
 
     def visualize_score_to_confusion_matrix_metrics(
             self,
@@ -190,22 +211,74 @@ class BinaryClassifierEvaluator:
         features_importance = self._get_features_importance()
         return px.bar(features_importance.reset_index(), y="feature", x="importance", orientation='h')
 
-    def visualize_partial_dependence_plot(self, feature_name):
-        partial_dependence_values = partial_dependence(self.estimator, self.X, feature_name)
-        df = pd.DataFrame({feature_name: partial_dependence_values["values"][0], "average": partial_dependence_values["average"][0]})
-        return px.line(df, x=feature_name, y="average")
+    def visualize_partial_dependence_plot(self, feature_name, pipeline_step=None):
+        if pipeline_step is not None:
+            pipeline_step_index = list(self.estimator.named_steps.keys()).index(pipeline_step)
+            partial_pipeline = self.estimator[:pipeline_step_index + 1]
+            features = partial_pipeline.transform(self.X)
+            complementary_pipeline = self.estimator[pipeline_step_index + 1:]
+        else:
+            features = self.X
+            complementary_pipeline = self.estimator
 
-    def visualize_predicted_vs_observed(self, level=None, categorical_feature=None, threshold=0.5):
+        partial_dependence_values = partial_dependence(complementary_pipeline, features, feature_name)
+        df = pd.DataFrame({feature_name: partial_dependence_values["values"][0], "average": partial_dependence_values["average"][0]})
+        return px.line(df, x=feature_name, y="average").update_layout(title="Partial dependence plot for " + feature_name)
+
+    def visualize_predicted_vs_observed(self, feature=None, pipeline_step=None, feature_values=None, threshold=0.5):
+        if feature_values is None:
+            if pipeline_step is not None:
+                feature_values = self._get_feature_after_pipeline_step(feature, pipeline_step)
+            else:
+                feature_values = self.X[feature]
+
         return bar_true_target_vs_predicted(
-            categorical_feature if categorical_feature is not None else self.X[level],
+            feature_values,
             self.y,
             self.get_predictions(threshold)
+        ).update_layout(title=f"Predicted vs observed for {feature}", yaxis2_range=[0, None])
+
+    def visualize_predicted_proba_vs_observed(self, feature=None, pipeline_step=None, feature_values=None):
+        def get_cross_entropy():
+            return log_loss(self.y, self.get_predict_scores())
+
+        if feature_values is None:
+            if pipeline_step is not None:
+                feature_values = self._get_feature_after_pipeline_step(feature, pipeline_step)
+            else:
+                feature_values = self.X[feature]
+
+        cross_entropy = get_cross_entropy()
+        optimum_cross_entropy = self.calculate_optimum_cross_entropy_for_features(feature_values=feature_values)
+
+        return bar_true_target_vs_predicted(
+            feature_values,
+            self.y,
+            self.get_predict_scores()
+        ).update_layout(
+            title=f"Average predicted probability vs observed for {feature}. Cross-entropy: {cross_entropy:.2f} (Optimum: {optimum_cross_entropy:.2f})",
+            yaxis2_range=[0, None]
         )
 
+    def _get_feature_after_pipeline_step(self, features, pipeline_step):
+        if not isinstance(self.estimator, Pipeline):
+            raise ValueError("Estimator is not a pipeline")
+
+        if pipeline_step not in self.estimator.named_steps:
+            raise ValueError(f"Pipeline does not contain step {pipeline_step}")
+
+        step_index = list(self.estimator.named_steps.keys()).index(pipeline_step)
+        previous_steps_pipeline = self.estimator[:step_index + 1]
+
+        return previous_steps_pipeline.transform(self.X)[features].set_axis(self.X.index, axis="index")
+
     def _get_features_importance(self):
+        if isinstance(self.estimator, Pipeline):
+            estimator = self.estimator.named_steps["classifier"]
+
         return pd.Series(
-            self.estimator.feature_importances_,
-            index=self.estimator.feature_names_in_,
+            estimator.feature_importances_,
+            index=estimator.feature_names_in_,
             name="importance"
         ).rename_axis(index="feature").sort_values(ascending=True)
 
@@ -232,4 +305,4 @@ class BinaryClassifierEvaluator:
         df["FP"] = (~df.target).cumsum()
         df["TN"] = num_negative - df["FP"]
 
-        return df.sort_values("score", ascending=True)
+        return df.iloc[::-1]

@@ -68,10 +68,13 @@ def bar_true_target_vs_predicted(
     )
 
     freq = probability_distribution.select_variables("feature").get_distribution()
-    average_success = probability_distribution.select_variables(["feature", "target"]).conditioned_on("feature").given(
-        target=True).distribution
-    average_predicted_success = probability_distribution.select_variables(["feature", "predicted"]).conditioned_on(
-        "feature").given(predicted=True).distribution
+    average_success = probability_distribution.select_variables(
+        ["feature", "target"]
+    ).conditioned_on("feature").given(target=True).distribution
+
+    average_predicted_success = pd.DataFrame(dict(
+        feature=categorical_feature, predicted=predicted_target
+    )).groupby("feature").predicted.mean()
 
     categories = freq.index
 
@@ -86,13 +89,13 @@ def bar_true_target_vs_predicted(
             ),
             go.Scatter(
                 x=categories,
-                y=average_success,
+                y=average_success.reindex(categories),
                 showlegend=False,
                 yaxis="y2"
             ),
             go.Scatter(
                 x=categories,
-                y=average_predicted_success,
+                y=average_predicted_success.reindex(categories),
                 showlegend=False,
                 yaxis="y2"
             )
@@ -112,7 +115,7 @@ def bar_true_target_vs_predicted(
                 titlefont_color=px.colors.qualitative.Plotly[1],
                 tickmode="sync",
                 tickformat='.0%',
-                range=[0, average_success * 1.1]
+                range=[0, None]
             ),
         )
     )

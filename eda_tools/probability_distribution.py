@@ -87,3 +87,13 @@ class ProbabilityDistribution:
     
     def get_marginal_probability(self, variables: Union[str, List[str]]) -> pd.Series:
         return self.get_marginal_count(variables).transform(lambda s: s / s.sum())
+
+    def get_expected_value(self, variable: str):
+        df = self.distribution.rename("count").reset_index()
+        all_variables_except_variable = [v for v in self.current_variables if v != variable]
+        if not all_variables_except_variable:
+            return sum(df[variable] * df["count"]) / df["count"].sum()
+
+        return df.groupby(by=all_variables_except_variable).apply(
+            lambda s: (s[variable] * s["count"]).sum() / s["count"].sum()
+        ).rename(variable)

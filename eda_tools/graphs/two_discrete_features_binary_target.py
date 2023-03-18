@@ -1,6 +1,7 @@
 import pandas as pd
 import plotly.graph_objects as go
 
+from eda_tools.probability_distribution import ProbabilityDistribution
 from eda_tools.statistical_tools import get_distribution
 
 
@@ -90,24 +91,22 @@ def marimekko(
 
 
 def barchart_100_percent(x_feature, y_feature, binary_target):
-    conditional_distribution = get_distribution([y_feature], conditioned_on=[x_feature])
-    positive_rate = get_distribution([binary_target], conditioned_on=[x_feature, y_feature]).loc[
-                        (slice(None), slice(None), True)] * 100
+    dist = ProbabilityDistribution.from_variables_samples(x_feature.rename("x"), y_feature.rename("y"), binary_target.rename("target"))
+    conditional_distribution = dist.select_variables(["x", "y"]).conditioned_on("x").get_distribution()
+    positive_rate = dist.conditioned_on(["x", "y"]).given(target=True).get_distribution() * 100
     df_grouped = pd.concat([conditional_distribution, positive_rate], axis="columns").set_axis(
         ["y_given_x", "positive_rate"], axis="columns")
 
-    x_order = get_distribution([binary_target], conditioned_on=[x_feature]).loc[(slice(None), True)].sort_values(
-        ascending=False).index
-    y_order = get_distribution([binary_target], conditioned_on=[y_feature]).loc[(slice(None), True)].sort_values(
-        ascending=False).index
-    df_grouped = df_grouped.reindex(index=x_order, level=x_feature.name).reindex(index=y_order, level=y_feature.name)
+    x_order = dist.select_variables(["x", "target"]).conditioned_on("x").given(target=True).get_distribution().sort_values(ascending=False).index
+    y_order = dist.select_variables(["y", "target"]).conditioned_on("y").given(target=True).get_distribution().sort_values(ascending=False).index
+    df_grouped = df_grouped.reindex(index=x_order, level="x").reindex(index=y_order, level="y")
 
     pattern_shapes = [None, "/", "\\", ".", "x", "+", "-", "|"]
 
     return go.Figure(
         data=[
             go.Bar(
-                x=df_given_x.index.get_level_values(x_feature.name),
+                x=df_given_x.index.get_level_values("x"),
                 y=df_given_x.y_given_x,
                 name=y_value,
                 marker=dict(
@@ -120,7 +119,7 @@ def barchart_100_percent(x_feature, y_feature, binary_target):
                 customdata=df_given_x.positive_rate,
                 texttemplate="Rate: %{customdata:.1f}%",
                 hovertemplate="Positive rate: %{customdata:.2f}%",
-            ) for i, (y_value, df_given_x) in enumerate(df_grouped.groupby(level=y_feature.name, sort=False))
+            ) for i, (y_value, df_given_x) in enumerate(df_grouped.groupby(level="y", sort=False))
         ],
         layout=go.Layout(
             barmode="stack",
