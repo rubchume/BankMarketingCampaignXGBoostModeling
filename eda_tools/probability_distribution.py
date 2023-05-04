@@ -74,13 +74,13 @@ class ProbabilityDistribution:
 
     def apply_function_to_variable(self, variable, function):
         df = self.distribution.reset_index()
-        df[variable] = function(df[variable])
+        df[variable] = df[variable].map(function)
 
         if df[variable].dtype == "category":
             self.categories_mapping[variable] = df[variable]
             df[variable] = df[variable].cat.codes
 
-        self.distribution = df.set_index(self.current_variables).iloc[:, 0]
+        return self._create_copy(distribution=df.set_index(self.current_variables).iloc[:, 0])
 
     def get_marginal_count(self, variables: Union[str, List[str]]) -> pd.Series:
         return self.distribution.groupby(level=variables).sum()
