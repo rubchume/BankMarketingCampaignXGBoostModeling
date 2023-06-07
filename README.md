@@ -5,6 +5,15 @@ The dataset is composed of demographic, financial and marketing data for 40000 c
 
 XBoost is used to model this binary classification problem
 
+# Visualize the notebook
+
+The notebook uses Plotly for graphs, so they are not going render in GitHub.
+
+Use instead the following URL to visualize the notebook with nbviewer:
+[Notebook](https://nbviewer.org/github/rubchume/BankMarketingCampaignXGBoostModeling/blob/main/DataAnalysis.ipynb).
+
+Also, you can of course clone the repository and open it in Jupyter Lab.
+
 # Details
 
 This project analizes real data from a marketing campaign in the bank sector. The goal is to build a machine learning model that predicts the success of the campaign as a function of the clients demographics and financial situation, as well as how the marketing campaign was performed (what methods were used and how).
