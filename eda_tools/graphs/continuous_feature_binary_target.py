@@ -9,35 +9,36 @@ from eda_tools.statistical_tools import clip_outliers, DiscretizationMagnitude, 
 
 
 def histogram(
-        df,
-        feature,
-        binary_target,
+        feature: pd.Series,
+        binary_target: pd.Series,
+        feature_name: str = None,
+        target_average_name: str = None,
         clip_outliers_max_deviation=None,
         number_of_bins=8,
         keep_group_size_constant=False
 ):
-    def get_interval_properties(intervals):
-        midpoints = intervals.map(lambda interval: interval.mid)
-        widths = intervals.map(lambda interval: interval.length).astype(float)
-        return midpoints, widths
-
-    distribution = ProbabilityDistribution.from_variables_samples(df)
+    feature_name = feature_name or feature.name
+    target_average_name = target_average_name or f"{feature_name} average"
 
     if clip_outliers_max_deviation is not None:
-        distribution.apply_function_to_variable(feature, lambda s: clip_outliers(s, clip_outliers_max_deviation))
+        feature = clip_outliers(feature, clip_outliers_max_deviation)
 
     discretization_magnitude = DiscretizationMagnitude.QUANTILE if keep_group_size_constant else DiscretizationMagnitude.VALUE
-    discretize_function = lambda s: discretize_variable(s, number_of_bins, discretization_magnitude)
-    distribution.apply_function_to_variable(feature, discretize_function)
+    feature = discretize_variable(feature, number_of_bins, discretization_magnitude)
 
-    distribution_of_interest = distribution.select_variables([feature, binary_target])
-    freq = distribution_of_interest.select_variables(feature).get_distribution()
+    distribution_of_interest = ProbabilityDistribution.from_variables_samples(
+        feature.rename("feature"),
+        binary_target.rename("binary_target")
+    )
+
+    freq = distribution_of_interest.select_variables("feature").get_distribution()
     positive_rate = (
-        distribution_of_interest.conditioned_on(feature).given({binary_target: True}).get_distribution()
+        distribution_of_interest.conditioned_on("feature").given({"binary_target": True}).get_distribution()
         .reindex(freq.index, fill_value=0)
     )
 
-    midpoints, widths = get_interval_properties(pd.Series(freq.index, index=freq.index))
+    midpoints = pd.Series([interval.mid for interval in freq.index], index=freq.index)
+    widths = pd.Series([interval.length for interval in freq.index], index=freq.index)
     probability_density = freq / freq.sum() / widths
 
     return go.Figure(
@@ -47,11 +48,11 @@ def histogram(
         ],
         layout=go.Layout(
             xaxis=dict(
-                title=feature,
+                title=feature_name,
                 tickvals=pd.concat([midpoints + widths / 2, midpoints - widths / 2], axis="index").unique(),
             ),
             yaxis=dict(
-                title=f"{feature} probability density",
+                title=f"{feature_name} probability density",
                 titlefont=dict(
                     color=px.colors.qualitative.Plotly[0]
                 ),
@@ -59,7 +60,7 @@ def histogram(
                 tickfont_color=px.colors.qualitative.Plotly[0]
             ),
             yaxis2=dict(
-                title=f"{binary_target} positive rate",
+                title=target_average_name,
                 range=[0, positive_rate.max() * 1.05],
                 anchor="x",
                 overlaying="y",
