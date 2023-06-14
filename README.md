@@ -3,9 +3,14 @@ This is an analysis of a marketing campaign from a bank institution. The goal is
 
 The dataset is composed of demographic, financial and marketing data for 40000 clients. It is subset of the one available at https://archive.ics.uci.edu/ml/datasets/Bank+Marketing.
 
-XBoost is used to model this binary classification problem
+XBoost is used to model this binary classification problem.
 
-# Visualize the notebook
+There are two notebooks:
+- DataAnalysis.ipynb: contains the data analysis and the model training.
+- ModelExplainability.ipynb: contains a simple model explainability analysis with SHAP values.
+
+
+# Visualize the DataAnalysis.ipynb notebook
 
 The notebook uses Plotly for graphs, so they are not going render in GitHub.
 
