@@ -42,3 +42,6 @@ The decreasing success rate related to more calls during the campaign suggests t
 The trained model with previously mentioned feature transformations and default hyperparameters, achieves a recall of 70% for a precision of 45.7%, which is pretty good since in the dataset there was only a 7% of successful cases. This can be achieved by lowering the predicted probability threshold from 0.5 (the default value) to 0.25.
 
 ![confusion matrix](confusion_matrix.png)
+
+With respect to the feature analysis with SHAP values, we see that the two features with more weight are campaign and balance, in the directions that we expected:
+![SHAP analysis](SHAPanalysis.png)
