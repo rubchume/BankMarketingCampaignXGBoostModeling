@@ -3,9 +3,14 @@ This is an analysis of a marketing campaign from a bank institution. The goal is
 
 The dataset is composed of demographic, financial and marketing data for 40000 clients. It is subset of the one available at https://archive.ics.uci.edu/ml/datasets/Bank+Marketing.
 
-XBoost is used to model this binary classification problem
+XBoost is used to model this binary classification problem.
 
-# Visualize the notebook
+There are two notebooks:
+- DataAnalysis.ipynb: contains the data analysis and the model training.
+- ModelExplainability.ipynb: contains a simple model explainability analysis with SHAP values.
+
+
+# Visualize the DataAnalysis.ipynb notebook
 
 The notebook uses Plotly for graphs, so they are not going render in GitHub.
 
@@ -37,3 +42,6 @@ The decreasing success rate related to more calls during the campaign suggests t
 The trained model with previously mentioned feature transformations and default hyperparameters, achieves a recall of 70% for a precision of 45.7%, which is pretty good since in the dataset there was only a 7% of successful cases. This can be achieved by lowering the predicted probability threshold from 0.5 (the default value) to 0.25.
 
 ![confusion matrix](confusion_matrix.png)
+
+With respect to the feature analysis with SHAP values, we see that the two features with more weight are campaign and balance, in the directions that we expected:
+![SHAP analysis](SHAPanalysis.png)
