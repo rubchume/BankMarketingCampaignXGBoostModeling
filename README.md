@@ -16,7 +16,6 @@ The notebook uses Plotly for graphs, so they are not going render in GitHub.
 
 Use instead the following URL to visualize the notebook with nbviewer:
 [DataAnalysis.ipynb](https://nbviewer.org/github/rubchume/BankMarketingCampaignXGBoostModeling/blob/main/DataAnalysis.ipynb).
-[ModelExplainability.ipynb](https://nbviewer.org/github/rubchume/BankMarketingCampaignXGBoostModeling/blob/main/ModelExplainability.ipynb)
 
 Also, you can of course clone the repository and open it in Jupyter Lab.
 
