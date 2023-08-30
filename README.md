@@ -1,4 +1,4 @@
-# Summary
+# Introduction
 This is an analysis of a marketing campaign from a bank institution. The goal is to predict if a client will subscribe to a term deposit.
 
 The dataset is composed of demographic, financial and marketing data for 40000 clients. It is subset of the one available at https://archive.ics.uci.edu/ml/datasets/Bank+Marketing.
@@ -10,24 +10,50 @@ There are two notebooks:
 - ModelExplainability.ipynb: contains a simple model explainability analysis with SHAP values.
 
 
-# Visualize the DataAnalysis.ipynb notebook
+## Visualize the DataAnalysis.ipynb notebook
 
 The notebook uses Plotly for graphs, so they are not going render in GitHub.
 
 Use instead the following URL to visualize the notebook with nbviewer:
-[Notebook](https://nbviewer.org/github/rubchume/BankMarketingCampaignXGBoostModeling/blob/main/DataAnalysis.ipynb).
+[DataAnalysis.ipynb](https://nbviewer.org/github/rubchume/BankMarketingCampaignXGBoostModeling/blob/main/DataAnalysis.ipynb).
+[ModelExplainability.ipynb](https://nbviewer.org/github/rubchume/BankMarketingCampaignXGBoostModeling/blob/main/ModelExplainability.ipynb)
 
 Also, you can of course clone the repository and open it in Jupyter Lab.
 
-# Details
-
-This project analizes real data from a marketing campaign in the bank sector. The goal is to build a machine learning model that predicts the success of the campaign as a function of the clients demographics and financial situation, as well as how the marketing campaign was performed (what methods were used and how).
-
+# Data description
 The data comes from direct marketing efforts of a European banking institution. The marketing campaign involves making a phone call to a customer, often multiple times to ensure a product subscription, in this case a term deposit. Term deposits are usually short-term deposits with maturities ranging from one month to a few years.
+
+Data from each of the 40000 clients is compiled into this [dataset](https://archive.ics.uci.edu/dataset/222/bank+marketing).
+
+For each client, we have access to some demographic features:
+- Age
+- Type of job
+- Marital state
+- Education
+
+Some features related to his/her financial situation:
+- Balance
+- Whether has credit in default or not
+- Does he has a housing loan
+- Does he has a personal loan
+
+And finally, there are features related to how the marketing campaign was performed for this specific client:
+- Type of contact: phone, mobile, unknown
+- Month of the last call
+- Day of the last call
+- Duration of the last call
+- Number of calls to the client during the marketing campaign
+
+Finally, we have a binary variable that informs whether or not the client eventually bought the term deposit. This variable is the target variable.
+
+Only 7% of all 40000 clients bought the term deposit, so it is expectable that achieving a good F1-score (high recall and precission at the same time) is going to be a challenge.
+
+# Approach
+The purpose is to analize real data from a marketing campaign in the bank sector. The goal is to build a machine learning model that predicts the success of the campaign as a function of the clients demographics and financial situation, as well as how the marketing campaign was performed (what methods were used and how).
 
 First, we explore the data visually to get a sense of what it is about, what are the potential uses of each feature and how they can be preprocessed. Then, we will use the XGBoost model to build an effective classifier with a proper balance between the recall and precision.
 
-We put a lot of focus on the feature engineering part, since it has been key to get a good performance. We will not pay much attention to hyperparameter tuning, since simple values already got good scores. The cross-entropy and the ROC AUC are the main metrics we have used in order to evaluate performance The reasons that support such choices are exposed along the way.
+We put a lot of focus on the feature engineering part, since it has been key to get a good performance. We will not pay much attention to hyperparameter tuning, since simple values already got good scores. The cross-entropy and the ROC AUC are the main metrics we have used in order to evaluate performance The reasons that support such choices are exposed along the way in the Notebook.
 
 # Conclusions
 
